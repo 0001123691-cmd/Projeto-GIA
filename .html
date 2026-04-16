@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIA - Gestão Integrada de Acessibilidade</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f1c40f;
+            --light: #ecf0f1;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f4f7f6; color: #333; }
+        header { background: var(--primary); color: white; padding: 1rem; text-align: center; }
+        
+        .container { display: flex; gap: 20px; padding: 20px; height: 85vh; }
+        
+        /* Seções */
+        .panel { flex: 1; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { background: #eee; padding: 15px; font-weight: bold; border-bottom: 2px solid #ddd; }
+        
+        /* Formulário Funcionário */
+        .form-group { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        input, select, textarea { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        button { padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-send { background: var(--secondary); color: white; }
+        .btn-send:hover { background: #2980b9; }
+
+        /* Painel Gestor */
+        .demand-list { padding: 15px; overflow-y: auto; flex-grow: 1; }
+        .card { background: #fff; border-left: 5px solid var(--secondary); padding: 15px; margin-bottom: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); position: relative; }
+        .card.urgente { border-left-color: var(--danger); }
+        .card.resolvido { opacity: 0.7; border-left-color: var(--success); background: #f9f9f9; }
+        
+        .badge { font-size: 0.8rem; padding: 3px 8px; border-radius: 10px; color: white; margin-left: 5px; }
+        .bg-urgente { background: var(--danger); }
+        .bg-normal { background: var(--secondary); }
+        
+        .actions { margin-top: 10px; display: flex; gap: 5px; }
+        .btn-done { background: var(--success); color: white; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>GIA - Gestão Integrada de Acessibilidade</h1>
+</header>
+
+<div class="container">
+    <section class="panel">
+        <div class="panel-header">Portal do Funcionário - Enviar Demanda</div>
+        <div class="form-group">
+            <input type="text" id="func-nome" placeholder="Seu Nome">
+            <select id="func-tipo">
+                <option value="Solicitação">Solicitação de Acessibilidade</option>
+                <option value="Feedback">Feedback / Sugestão</option>
+            </select>
+            <select id="func-urgencia">
+                <option value="Normal">Urgência: Normal</option>
+                <option value="Alta">Urgência: Alta (Impedimento de trabalho)</option>
+            </select>
+            <textarea id="func-demanda" rows="4" placeholder="Descreva sua necessidade ou feedback..."></textarea>
+            <button class="btn-send" onclick="enviarDemanda()">Enviar para Gestão</button>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-header">Painel do Gestor - Demandas Recebidas</div>
+        <div id="demandas-container" class="demand-list">
+            </div>
+    </section>
+</div>
+
+<script>
+    // Função para salvar e carregar dados simulando um banco de dados
+    let demandas = JSON.parse(localStorage.getItem('gia_demandas')) || [];
+
+    function enviarDemanda() {
+        const nome = document.getElementById('func-nome').value;
+        const tipo = document.getElementById('func-tipo').value;
+        const urgencia = document.getElementById('func-urgencia').value;
+        const mensagem = document.getElementById('func-demanda').value;
+
+        if(!nome || !mensagem) {
+            alert("Por favor, preencha seu nome e a descrição.");
+            return;
+        }
+
+        const novaDemanda = {
+            id: Date.now(),
+            nome,
+            tipo,
+            urgencia,
+            mensagem,
+            status: 'Pendente',
+            data: new Date().toLocaleString('pt-BR')
+        };
+
+        demandas.unshift(novaDemanda); // Adiciona no início da lista
+        atualizarStorage();
+        limparCampos();
+        renderizarDemandas();
+    }
+
+    function renderizarDemandas() {
+        const container = document.getElementById('demandas-container');
+        container.innerHTML = '';
+
+        demandas.forEach(d => {
+            const card = document.createElement('div');
+            card.className = `card ${d.urgencia === 'Alta' ? 'urgente' : ''} ${d.status === 'Resolvido' ? 'resolvido' : ''}`;
+            
+            card.innerHTML = `
+                <small>${d.data} | <strong>${d.tipo}</strong></small>
+                <p><strong>De:</strong> ${d.nome} <span class="badge ${d.urgencia === 'Alta' ? 'bg-urgente' : 'bg-normal'}">${d.urgencia}</span></p>
+                <p><em>"${d.mensagem}"</em></p>
+                <p>Status: <strong>${d.status}</strong></p>
+                <div class="actions">
+                    ${d.status === 'Pendente' ? `<button class="btn-done" onclick="resolver('${d.id}')">Marcar como Resolvido</button>` : '✅ Concluído'}
+                    <button style="background:#ddd" onclick="excluir('${d.id}')">Excluir</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function resolver(id) {
+        demandas = demandas.map(d => d.id == id ? {...d, status: 'Resolvido'} : d);
+        atualizarStorage();
+        renderizarDemandas();
+    }
+
+    function excluir(id) {
+        demandas = demandas.filter(d => d.id != id);
+        atualizarStorage();
+        renderizarDemandas();
+    }
+
+    function atualizarStorage() {
+        localStorage.setItem('gia_demandas', JSON.stringify(demandas));
+    }
+
+    function limparCampos() {
+        document.getElementById('func-nome').value = '';
+        document.getElementById('func-demanda').value = '';
+    }
+
+    // Listener para simular "tempo real" caso você abra em duas abas do mesmo navegador
+    window.addEventListener('storage', () => {
+        demandas = JSON.parse(localStorage.getItem('gia_demandas')) || [];
+        renderizarDemandas();
+    });
+
+    // Inicialização
+    renderizarDemandas();
+</script>
+
+</body>
+</html>
